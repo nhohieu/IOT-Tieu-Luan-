@@ -3,7 +3,7 @@ import numpy as np
 
 # ========================================================
 # 1. ĐỔI TÊN VIDEO CỦA BẠN Ở ĐÂY
-VIDEO_PATH = 'assets/videotest.mp4' 
+VIDEO_PATH = 'assets/videotest8.mp4' 
 # ========================================================
 
 parking_slots = []
