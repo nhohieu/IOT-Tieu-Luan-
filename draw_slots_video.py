@@ -1,10 +1,10 @@
 import cv2
 import numpy as np
 
-# ========================================================
-# 1. ĐỔI TÊN VIDEO CỦA BẠN Ở ĐÂY
-VIDEO_PATH = 'assets/videotest8.mp4' 
-# ========================================================
+
+# 1. ĐỔI TÊN VIDEO 
+VIDEO_PATH = 'assets/videotest11.mp4' 
+
 
 parking_slots = []
 current_slot = []
@@ -13,7 +13,7 @@ def mouse_callback(event, x, y, flags, param):
     global current_slot, parking_slots
 
     if event == cv2.EVENT_LBUTTONDOWN:
-        # Lấy trực tiếp tọa độ (x, y) không cần tính toán nhân chia gì cả
+        # Lấy trực tiếp tọa độ (x, y) 
         current_slot.append((x, y))
         print(f"Click: ({x}, {y})")
 
@@ -41,10 +41,7 @@ if not ret:
 cv2.namedWindow("LAY TOA DO (FULL SIZE)")
 cv2.setMouseCallback("LAY TOA DO (FULL SIZE)", mouse_callback)
 
-print(f"--- CHẾ ĐỘ VẼ TỈ LỆ GỐC 1:1 ---")
-print("1. Click chuột TRÁI 4 góc để vẽ ô.")
-print("2. Chuột PHẢI để xóa ô nếu sai.")
-print("3. Bấm phím 'q' để LẤY CODE.")
+print("3. Bấm phím 'q' để thoat.")
 
 while True:
     # Copy ra để vẽ
@@ -73,7 +70,6 @@ cv2.destroyAllWindows()
 
 # --- IN KẾT QUẢ ---
 print("\n" + "="*40)
-print("XONG! COPY ĐOẠN NÀY DÁN VÀO FILE TEST_VIDEO.PY:")
 print("="*40)
 print("PARKING_SLOTS = [")
 for slot in parking_slots:
