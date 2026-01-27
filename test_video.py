@@ -2,47 +2,51 @@ import cv2
 import numpy as np
 from ultralytics import YOLO
 
-# ================= CONFIG =================
-VIDEO_PATH = 'assets/videotest11.mp4'
-MODEL_PATH = 'yolov8s.pt'   # 👉 dùng s hoặc m cho xe thật
+VIDEO_PATH = "assets/parking.mp4"
+MODEL_PATH = "yolov8s.pt"
+
+CONF_THRES = 0.25
+FPS_DELAY = 30
+DISPLAY_SCALE = 1
+
+VEHICLE_CLASSES = ["car", "truck", "bus"]
 
 PARKING_SLOTS = [
-    np.array([(73,185),(314,200),(281,562),(44,549)], np.int32),
-    np.array([(445,226),(659,236),(642,578),(437,565)], np.int32),
+    np.array([
+        (1102, 279),
+        (1181, 378),
+        (1261, 375),
+        (1181, 277)
+    ], np.int32),
 ]
 
-SCORE_ON  = 3
-SCORE_MAX = 8
+# ===== HYSTERESIS PARAM =====
+ENTER_RATIO = 0.10   # dễ vào
+EXIT_RATIO  = 0.03   # khó ra
+EXIT_FRAMES = 15     # phải mất liên tục 15 frame mới cho trống
 
-VEHICLE_CLASSES = ['car', 'truck', 'bus', 'motorcycle']
-
-# ================= UTILS =================
-def bottom_center(bbox):
-    x1,y1,x2,y2 = bbox
-    return (int((x1+x2)/2), int(y2))
-
-def point_in_slot(point, polygon):
-    return cv2.pointPolygonTest(polygon, point, False) >= 0
-
-# ================= INIT =================
 model = YOLO(MODEL_PATH)
 cap = cv2.VideoCapture(VIDEO_PATH)
 
-slot_score = [0]*len(PARKING_SLOTS)
-slot_state = [0]*len(PARKING_SLOTS)  # 0: trống, 1: đúng, 2: sai
+slot_state = [0] * len(PARKING_SLOTS)
+lost_counter = [0] * len(PARKING_SLOTS)
 
-print("PARKING CHECK - REAL CAR VERSION")
+def intersection_area(poly1, poly2, shape):
+    mask1 = np.zeros(shape[:2], np.uint8)
+    mask2 = np.zeros(shape[:2], np.uint8)
+    cv2.fillPoly(mask1, [poly1], 255)
+    cv2.fillPoly(mask2, [poly2], 255)
+    return cv2.countNonZero(cv2.bitwise_and(mask1, mask2))
 
-# ================= MAIN LOOP =================
 while True:
     ret, frame = cap.read()
     if not ret:
-        cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-        continue
+        break
 
-    detected = [False]*len(PARKING_SLOTS)
+    h, w = frame.shape[:2]
+    slot_hit_ratio = [0.0] * len(PARKING_SLOTS)
 
-    results = model(frame, conf=0.25, verbose=False)
+    results = model(frame, conf=CONF_THRES, verbose=False)
 
     for r in results:
         for box in r.boxes:
@@ -50,54 +54,45 @@ while True:
             if cls not in VEHICLE_CLASSES:
                 continue
 
-            x1,y1,x2,y2 = map(int, box.xyxy[0])
-            if (x2-x1)*(y2-y1) < 3000:
-                continue
+            x1, y1, x2, y2 = map(int, box.xyxy[0])
+            car_poly = np.array([
+                (x1,y1),(x2,y1),(x2,y2),(x1,y2)
+            ], np.int32)
 
-            bc = bottom_center((x1,y1,x2,y2))
-
-            matched = False
             for i, slot in enumerate(PARKING_SLOTS):
-                if point_in_slot(bc, slot):
-                    detected[i] = True
-                    matched = True
-                    cv2.rectangle(frame,(x1,y1),(x2,y2),(0,255,0),2)
-                    cv2.circle(frame, bc, 5, (0,255,0), -1)
-                    break
+                inter = intersection_area(slot, car_poly, frame.shape)
+                area = cv2.contourArea(slot)
+                ratio = inter / area if area > 0 else 0
+                slot_hit_ratio[i] = max(slot_hit_ratio[i], ratio)
 
-            if not matched:
-                cv2.rectangle(frame,(x1,y1),(x2,y2),(0,0,255),2)
-                cv2.circle(frame, bc, 5, (0,0,255), -1)
-
-    # ===== TEMPORAL =====
+    # ===== STATE UPDATE (KHÓ NHẢY) =====
     for i in range(len(PARKING_SLOTS)):
-        if detected[i]:
-            slot_score[i] = min(slot_score[i]+1, SCORE_MAX)
-            if slot_score[i] >= SCORE_ON:
+        if slot_state[i] == 0:
+            if slot_hit_ratio[i] > ENTER_RATIO:
                 slot_state[i] = 1
+                lost_counter[i] = 0
         else:
-            slot_score[i] = max(slot_score[i]-1, 0)
-            if slot_score[i] == 0:
-                slot_state[i] = 0
+            if slot_hit_ratio[i] < EXIT_RATIO:
+                lost_counter[i] += 1
+                if lost_counter[i] >= EXIT_FRAMES:
+                    slot_state[i] = 0
+                    lost_counter[i] = 0
+            else:
+                lost_counter[i] = 0
 
-    ok = bad = 0
+    # ===== DRAW =====
     for i, slot in enumerate(PARKING_SLOTS):
-        if slot_state[i] == 1:
-            color=(0,255,0); txt="DUNG"; ok+=1
-        else:
-            color=(150,150,150); txt="TRONG"
+        color = (0,255,0) if slot_state[i] else (0,0,255)
+        label = "CO XE" if slot_state[i] else "TRONG"
+        cv2.polylines(frame, [slot], True, color, 2)
+        cv2.putText(frame, label,
+            (slot[0][0], slot[0][1]-8),
+            cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
 
-        cv2.polylines(frame,[slot],True,color,3)
-        cv2.putText(frame,txt,
-            (slot[0][0],slot[0][1]-10),
-            cv2.FONT_HERSHEY_SIMPLEX,0.8,color,2)
+    cv2.imshow("Giam Sat Bai Do Xe",
+               cv2.resize(frame, (int(w*DISPLAY_SCALE), int(h*DISPLAY_SCALE))))
 
-    cv2.rectangle(frame,(0,0),(500,50),(0,0,0),-1)
-    cv2.putText(frame,f"DUNG: {ok}",
-        (10,35),cv2.FONT_HERSHEY_SIMPLEX,1,(255,255,255),2)
-
-    cv2.imshow("PARKING CHECK - REAL CAR", frame)
-    if cv2.waitKey(30) & 0xFF == ord('q'):
+    if cv2.waitKey(FPS_DELAY) & 0xFF == ord('q'):
         break
 
 cap.release()
