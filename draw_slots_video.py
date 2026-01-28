@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 
 # ================= CONFIG =================
-VIDEO_PATH = 'assets/parking.mp4'
+VIDEO_PATH = 'assets/videotest4.mp4'
 SCALE_FACTOR = 1   # 1.2 / 1.5 / 2.0 tuỳ màn hình
 
 parking_slots = []
