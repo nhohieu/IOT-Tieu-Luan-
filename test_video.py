@@ -6,29 +6,26 @@ VIDEO_PATH = "assets/videotest4.mp4"
 MODEL_PATH = "yolov8s.pt"
 
 CONF_THRES = 0.25
-FPS_DELAY = 30          # ~30 FPS
+FPS_DELAY = 30        
 DISPLAY_SCALE = 1
 
-# ===== NHẬN DIỆN XE =====
 VEHICLE_CLASSES = ["car", "truck", "bus", "motorbike"]
 
-# ===== Ô ĐỖ =====
 PARKING_SLOTS = [
     np.array([(35,520), (478,553), (823,309), (614,246)], np.int32),
 ]
 
-# ===== THAM SỐ =====
 ENTER_RATIO = 0.10
 EXIT_RATIO  = 0.03
 
 STOP_SECONDS = 3
 STOP_FRAMES  = STOP_SECONDS * FPS_DELAY
-MOVE_THRESH  = 15      # pixel – nhỏ hơn là coi như đứng yên
+MOVE_THRESH  = 15     
 
 model = YOLO(MODEL_PATH)
 cap = cv2.VideoCapture(VIDEO_PATH)
 
-slot_state   = [0] * len(PARKING_SLOTS)   # 0: an toàn | 1: đỗ trái phép
+slot_state   = [0] * len(PARKING_SLOTS)  
 stop_counter = [0] * len(PARKING_SLOTS)
 last_center  = [None] * len(PARKING_SLOTS)
 
@@ -69,7 +66,6 @@ while True:
                     slot_hit_ratio[i] = ratio
                     slot_center[i] = (cx, cy)
 
-    # ===== LOGIC ĐỨNG YÊN 3 GIÂY =====
     for i in range(len(PARKING_SLOTS)):
         if slot_hit_ratio[i] > ENTER_RATIO and slot_center[i] is not None:
             if last_center[i] is not None:
@@ -87,13 +83,12 @@ while True:
             last_center[i] = slot_center[i]
 
             if stop_counter[i] >= STOP_FRAMES:
-                slot_state[i] = 1   # đỗ trái phép
+                slot_state[i] = 1  
         else:
             slot_state[i] = 0
             stop_counter[i] = 0
             last_center[i] = None
 
-    # ===== VẼ =====
     for i, slot in enumerate(PARKING_SLOTS):
         if slot_state[i]:
             color = (0,0,255)
